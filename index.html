@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stitch - Biblioteca Don Luis y Misia Virginia</title>
+    
+    <!-- Fuentes de Google y Lucide Icons (CDN) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* =========================================
+           1. ESTILOS GLOBALES Y TOKENS DE DISEÑO
+           ========================================= */
+        :root {
+            --primary: #ec4899; 
+            --primary-hover: #db2777;
+            --blue-ui: #3b82f6;
+            --blue-hover: #2563eb;
+            --bg-body: #fff5f8; 
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            
+            --sidebar-width: 260px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            --radius: 16px;
+            
+            --status-green: #10b981;
+            --status-bg-green: #d1fae5;
+            --status-orange: #f59e0b;
+            --status-bg-orange: #fef3c7;
+            --status-red: #ef4444;
+            --status-bg-red: #fee2e2;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); overflow-x: hidden; }
+
+        *:focus-visible { outline: 2px solid var(--blue-ui); outline-offset: 2px; }
+
+        .hidden { display: none !important; }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .w-full { width: 100%; }
+        .mt-4 { margin-top: 1rem; }
+        .mt-6 { margin-top: 1.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .text-center { text-align: center; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+
+        /* =========================================
+           2. COMPONENTES UI (Inputs, Botones, Cards)
+           ========================================= */
+        input, select {
+            width: 100%; padding: 14px 16px; border: 1px solid var(--border);
+            border-radius: 12px; font-size: 0.95rem; outline: none;
+            transition: all 0.2s; background: #f8fafc; color: var(--text-main);
+        }
+        input:focus, select:focus {
+            border-color: var(--blue-ui); background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        input:disabled { background: #e2e8f0; cursor: not-allowed; opacity: 0.7; }
+        
+        input.input-error, select.input-error {
+            border-color: var(--status-red) !important; background: #fff5f5 !important;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+        }
+        .error-message {
+            color: var(--status-red); font-size: 0.75rem; margin-top: 6px;
+            font-weight: 500; display: none; animation: fadeIn 0.2s ease-out;
+            line-height: 1.3;
+        }
+        .error-message.show { display: flex; align-items: flex-start; gap: 4px; }
+
+        .btn-primary {
+            background: var(--blue-ui); color: white; border: none; padding: 14px 24px;
+            border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn-primary:hover:not(:disabled) { background: var(--blue-hover); }
+        .btn-primary.pink { background: var(--primary); }
+        .btn-primary.pink:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+        .card { background: var(--bg-card); padding: 24px; border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); }
+
+        .badge {
+            padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.3s ease;
+        }
+        .badge.entregado { background: var(--status-bg-green); color: var(--status-green); }
+        .badge.a-devolver { background: var(--status-bg-orange); color: var(--status-orange); }
+        .badge.overdue { background: var(--status-bg-red); color: var(--status-red); }
+        .badge.nuevo { background: #fce7f3; color: var(--primary); }
+        /* Nueva clase de badge para los préstamos recién creados */
+        .badge.activo { background: #eff6ff; color: var(--blue-ui); }
+
+        /* =========================================
+           3. LAYOUT PRINCIPAL (App Shell & Sidebar)
+           ========================================= */
+        .app-container { display: flex; height: 100vh; }
+        .sidebar {
+            width: var(--sidebar-width); background: white; border-right: 1px solid var(--border);
+            display: none; flex-direction: column; z-index: 50;
+        }
+        @media (min-width: 768px) { .sidebar { display: flex; } }
+        
+        .sidebar-header { padding: 24px; display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.25rem; }
+        .logo-icon { color: var(--primary); }
+        
+        .nav-link {
+            display: flex; align-items: center; gap: 12px; padding: 14px 24px;
+            color: var(--text-muted); text-decoration: none; font-weight: 500;
+            transition: all 0.2s; border-left: 4px solid transparent;
+        }
+        .nav-link.active, .nav-link:hover { color: var(--primary); background: #fdf2f8; border-left-color: var(--primary); }
+
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding-bottom: 80px; }
+        .top-header {
+            padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255, 245, 248, 0.9); backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 10;
+        }
+        .page-title { font-size: 1.5rem; font-weight: 700; display: flex; flex-direction: column;}
+        .page-subtitle { font-size: 0.75rem; color: var(--primary); text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+        .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: #fce7f3; color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: bold; }
+
+        .page-section { padding: 0 24px 24px 24px; max-width: 800px; margin: 0 auto; width: 100%; }
+
+        /* =========================================
+           4. VISTAS ESPECÍFICAS
+           ========================================= */
+        .auth-wrapper { height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        
+        .room-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; margin-top: 24px; }
+        .room-btn {
+            background: white; border: 2px solid #f1f5f9; padding: 24px 16px; border-radius: 20px;
+            display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s; font-weight: 600; color: var(--text-main);
+        }
+        .room-btn:hover { border-color: var(--blue-ui); transform: translateY(-3px); box-shadow: var(--shadow); }
+        .room-btn i { color: var(--blue-ui); }
+
+        .form-section-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; color: var(--text-main); }
+        .form-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (min-width: 600px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+        .input-group { text-align: left; }
+        .input-group label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 6px; font-weight: 500; }
+        
+        .entrada-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .entrada-btn {
+            background: white; border: 1px solid var(--border); padding: 16px; border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center; font-weight: 500; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.02); transition: border-color 0.2s;
+        }
+        .entrada-btn:hover { border-color: var(--status-green); }
+        .entrada-btn i { color: var(--status-green); }
+
+        .loan-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; background: white; transition: all 0.3s ease; }
+        .loan-item.overdue-border { border-color: var(--status-red); }
+        .loan-info h4 { font-size: 1rem; margin-bottom: 4px; }
+        .loan-info p { font-size: 0.85rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+        .loan-dates { display: flex; gap: 24px; margin-top: 12px; font-size: 0.8rem; }
+        .date-block span { display: block; color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; margin-bottom: 2px; }
+        .date-block strong { color: var(--text-main); }
+        .date-block.red strong { color: var(--status-red); }
+
+        /* =========================================
+           5. NAVEGACIÓN MÓVIL Y TOAST
+           ========================================= */
+        .mobile-nav {
+            position: fixed; bottom: 0; left: 0; right: 0; background: white;
+            display: flex; justify-content: space-around; padding: 12px 10px 24px 10px;
+            border-top: 1px solid var(--border); box-shadow: 0 -4px 10px rgba(0,0,0,0.02); z-index: 100;
+        }
+        @media (min-width: 768px) { .mobile-nav { display: none; } }
+        
+        .mob-link { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; font-weight: 500; transition: color 0.2s; }
+        .mob-link.active { color: var(--primary); }
+        
+        .toast {
+            position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #1e293b; color: white; padding: 12px 24px; border-radius: 30px; font-size: 0.9rem; font-weight: 500;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 1000; opacity: 0;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.error { background: var(--status-red); }
+    </style>
+</head>
+<body>
+
+    <!-- MÓDULO DE AUTENTICACIÓN -->
+    <div id="view-login" class="auth-wrapper fade-in">
+        <div class="card" style="width: 100%; max-width: 400px; text-align: center;">
+            <i data-lucide="book-open" class="logo-icon" style="width: 48px; height: 48px; margin: 0 auto;"></i>
+            <h1 class="mt-4" style="font-size: 1.5rem;">Iniciar Sesión</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px;">Biblioteca Don Luis y Misia Virginia</p>
+            
+            <form id="form-login" onsubmit="handleLogin(event)" novalidate>
+                <div class="input-group mb-4">
+                    <label for="login-user">Usuario o Correo</label>
+                    <input type="text" id="login-user" placeholder="Ej. bibliotecaria_01" required aria-label="Usuario">
+                    <div class="error-message" id="err-login-user">
+                        <i data-lucide="alert-circle" style="width: 14px; height: 14px; flex-shrink: 0;"></i> <span></span>
+                    </div>
+                </div>
+                <div class="input-group mb-4" style="margin-bottom: 24px;">
+                    <label for="login-pass">Contraseña</label>
+                    <div style="position: relative;">
+                        <input type="password" id="login-pass" placeholder="••••••••" required aria-label="Contraseña">
+                        <button type="button" onclick="togglePassword()" style="position: absolute; right: 12px; top: 12px; background: none; border: none; cursor: pointer; color: var(--text-muted);" aria-label="Mostrar contraseña">
+                            <i id="pwd-icon" data-lucide="eye" style="width: 20px; height: 20px;"></i>
+                        </button>
+                    </div>
+                    <div class="error-message" id="err-login-pass">
+                        <i data-lucide="alert-circle" style="width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px;"></i> <span></span>
+                    </div>
+                </div>
+                <button type="submit" id="btn-login" class="btn-primary w-full">Ingresar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MÓDULO SELECCIÓN DE SALA -->
+    <div id="view-rooms" class="auth-wrapper hidden">
+        <div class="fade-in" style="width: 100%; max-width: 600px;">
+            <div class="flex items-center" style="gap: 12px; margin-bottom: 8px;">
+                <i data-lucide="library" style="color: var(--primary);"></i>
+                <h1 style="color: var(--primary); font-size: 1.1rem;">Biblioteca Central</h1>
+            </div>
+            <h2 style="font-size: 2rem; color: var(--text-main);">Seleccionar Sala</h2>
+            <p style="color: var(--text-muted);">Elige un espacio para tu jornada de gestión</p>
+            
+            <div class="room-grid">
+                <button class="room-btn" onclick="selectRoom('Sala Biología')"><i data-lucide="flask-conical"></i><span>Sala Biología</span></button>
+                <button class="room-btn" onclick="selectRoom('Sala Literatura')"><i data-lucide="book-text"></i><span>Sala Literatura</span></button>
+                <button class="room-btn" onclick="selectRoom('Ciencias Naturales')"><i data-lucide="tree-pine"></i><span>Ciencias Naturales</span></button>
+                <button class="room-btn" onclick="selectRoom('Sala Infantil')"><i data-lucide="baby"></i><span>Sala Infantil</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SISTEMA PRINCIPAL (APP SHELL) -->
+    <div id="app-shell" class="app-container hidden">
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i data-lucide="book-open" class="logo-icon"></i>
+                <span>Stitch App</span>
+            </div>
+            <nav style="flex: 1; padding: 20px 0;">
+                <a href="#" class="nav-link nav-btn active" data-target="dashboard"><i data-lucide="home"></i> Inicio</a>
+                <a href="#" class="nav-link nav-btn" data-target="prestamos"><i data-lucide="plus-circle"></i> Nuevo Préstamo</a>
+                <a href="#" class="nav-link nav-btn" data-target="historial"><i data-lucide="list"></i> Estado Préstamos</a>
+            </nav>
+            <div style="padding: 20px;">
+                <button onclick="logout()" class="nav-link" style="width: 100%; background: none; border: none; cursor: pointer; color: var(--status-red);"><i data-lucide="log-out"></i> Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-header">
+                <div class="page-title">
+                    <span class="page-subtitle" id="header-subtitle">Registro y Actividad</span>
+                    <span id="header-title">Sala</span>
+                </div>
+                <div class="user-avatar" title="Perfil de Usuario"><i data-lucide="user"></i></div>
+            </header>
+
+            <!-- VISTA: DASHBOARD -->
+            <section id="page-dashboard" class="page-section fade-in">
+                <button class="btn-primary pink w-full mb-4" onclick="navigateTo('prestamos')" style="margin-bottom: 24px;">
+                    <i data-lucide="plus-circle"></i> REGISTRAR NUEVO PRÉSTAMO
+                </button>
+
+                <div class="card">
+                    <h3 class="form-section-title" style="color: var(--primary);"><i data-lucide="user-check" style="width: 20px;"></i> Registro de Entrada</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;">Fecha actual: <strong id="current-date"></strong></p>
+                    
+                    <div class="entrada-grid">
+                        <button class="entrada-btn" onclick="registrarEntrada('Niño')">Niño <i data-lucide="plus-circle"></i></button>
+                        <button class="entrada-btn" onclick="registrarEntrada('Adol. Fem.')">Adol. Fem. <i data-lucide="plus-circle"></i></button>
+                        <button class="entrada-btn" onclick="registrarEntrada('Niña')">Niña <i data-lucide="plus-circle"></i></button>
+                        <button class="entrada-btn" onclick="registrarEntrada('Adol. Masc.')">Adol. Masc. <i data-lucide="plus-circle"></i></button>
+                        <button class="entrada-btn" onclick="registrarEntrada('Adulto')">Adulto <i data-lucide="plus-circle"></i></button>
+                        <button class="entrada-btn" onclick="registrarEntrada('Adulto Mayor')">Adulto Mayor <i data-lucide="plus-circle"></i></button>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <div class="flex justify-between items-center mb-4" style="margin-bottom: 12px;">
+                        <h3 class="form-section-title" style="margin: 0;"><i data-lucide="history" style="width: 20px;"></i> Préstamos Recientes</h3>
+                        <a href="#" onclick="navigateTo('historial')" style="font-size: 0.8rem; color: var(--primary); text-decoration: none; font-weight: 600;">Ver todos</a>
+                    </div>
+                    
+                    <!-- CAMBIO 1: Se agregó el ID "dashboard-loans-list" al contenedor -->
+                    <div id="dashboard-loans-list">
+                        <div class="loan-item" style="border-left: 4px solid var(--status-green);">
+                            <div class="loan-info"><h4>Camila Bastidas</h4><p><i data-lucide="book" style="width: 14px;"></i> Historias inexplicables de biología</p></div>
+                            <div class="text-center"><span class="badge entregado">ENTREGADO</span><div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Ayer</div></div>
+                        </div>
+                        
+                        <div class="loan-item" style="border-left: 4px solid var(--status-orange);">
+                            <div class="loan-info"><h4>Ricardo Gomez</h4><p><i data-lucide="book" style="width: 14px;"></i> Tratado de botánica aplicada</p></div>
+                            <div class="text-center"><span class="badge a-devolver">A DEVOLVER</span><div style="font-size: 0.8rem; color: var(--status-orange); font-weight: bold; margin-top: 4px;">En 3 días</div></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA: NUEVO PRÉSTAMO -->
+            <section id="page-prestamos" class="page-section hidden fade-in">
+                <div class="card" style="background: #f8fafc; border: none; margin-bottom: 24px;">
+                    <h3 class="form-section-title" style="color: var(--blue-ui);"><i data-lucide="users" style="width: 20px;"></i> Lector Registrado</h3>
+                    <div style="position: relative;">
+                        <i data-lucide="search" style="position: absolute; left: 16px; top: 14px; color: var(--text-muted);"></i>
+                        <input type="text" id="buscador-lector" placeholder="Buscar por Nombre o Cédula (Ej. 123)" style="padding-left: 44px; background: white;" onkeyup="simularBusqueda()">
+                    </div>
+                </div>
+
+                <form id="form-nuevo-prestamo" onsubmit="registrarPrestamo(event)" novalidate>
+                    <div class="flex justify-between items-center mb-4" style="margin-bottom: 16px;">
+                        <h3 class="form-section-title" style="margin: 0;"><i data-lucide="user" style="width: 20px; color: var(--primary);"></i> Datos del Lector</h3>
+                        <span id="badge-estado-usuario" class="badge nuevo">NUEVO REGISTRO</span>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="input-group"><label for="inp-nombre">Nombre</label><input type="text" id="inp-nombre" placeholder="Ej. Camila" required><div class="error-message" id="err-inp-nombre"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group"><label for="inp-apellido">Apellido</label><input type="text" id="inp-apellido" placeholder="Ej. Bastidas" required><div class="error-message" id="err-inp-apellido"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group"><label for="inp-cedula">Cédula / ID</label><input type="text" id="inp-cedula" placeholder="12345678" required><div class="error-message" id="err-inp-cedula"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group"><label for="inp-genero">Género</label><select id="inp-genero" required><option value="">Seleccionar</option><option value="Femenino">Femenino</option><option value="Masculino">Masculino</option></select><div class="error-message" id="err-inp-genero"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group" style="grid-column: 1 / -1;"><label for="inp-direccion">Dirección de Habitación</label><input type="text" id="inp-direccion" placeholder="Av. Principal..." required><div class="error-message" id="err-inp-direccion"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group"><label for="inp-tel1">Teléfono Principal</label><input type="tel" id="inp-tel1" placeholder="0412-1234567" required><div class="error-message" id="err-inp-tel1"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                    </div>
+
+                    <h3 class="form-section-title mt-6"><i data-lucide="book-marked" style="width: 20px; color: var(--primary);"></i> Detalles del Préstamo</h3>
+                    <div class="form-grid">
+                        <div class="input-group"><label for="inp-fecha-sol">Fecha de Solicitud</label><input type="date" id="inp-fecha-sol" required><div class="error-message" id="err-inp-fecha-sol"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group"><label for="inp-fecha-dev">Fecha de Devolución</label><input type="date" id="inp-fecha-dev" required><div class="error-message" id="err-inp-fecha-dev"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group" style="grid-column: 1 / -1;"><label for="inp-libro">Título del Libro</label><input type="text" id="inp-libro" placeholder="Ej. El origen de las especies" required><div class="error-message" id="err-inp-libro"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                        <div class="input-group" style="grid-column: 1 / -1;"><label for="inp-autor">Autor del Libro</label><input type="text" id="inp-autor" placeholder="Ej. Charles Darwin" required><div class="error-message" id="err-inp-autor"><i data-lucide="alert-circle" style="width: 14px; height: 14px;"></i> <span></span></div></div>
+                    </div>
+
+                    <button type="submit" id="btn-submit-prestamo" class="btn-primary pink w-full mt-6"><i data-lucide="bookmark-check"></i> Registrar Préstamo</button>
+                </form>
+            </section>
+
+            <!-- VISTA: HISTORIAL Y ESTADO -->
+            <section id="page-historial" class="page-section hidden fade-in">
+                <div style="position: relative; margin-bottom: 24px;">
+                    <i data-lucide="search" style="position: absolute; left: 16px; top: 14px; color: var(--text-muted);"></i>
+                    <input type="text" placeholder="Buscar usuarios o título de libro..." style="padding-left: 44px;">
+                </div>
+
+                <div class="flex" style="gap: 8px; margin-bottom: 24px; overflow-x: auto; padding-bottom: 4px;">
+                    <button class="btn-primary" style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem;">Todos</button>
+                    <button style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; border: 1px solid var(--status-red); background: white; color: var(--status-red); cursor: pointer;">Retrasados</button>
+                    <button style="padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; border: 1px solid var(--blue-ui); background: white; color: var(--blue-ui); cursor: pointer;">Activos</button>
+                </div>
+
+                <!-- CAMBIO 2: Se agregó el ID "historial-loans-list" al contenedor -->
+                <div id="historial-loans-list">
+                    <div class="loan-item overdue-border" style="position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: 0; right: 0; background: var(--status-red); color: white; font-size: 0.6rem; font-weight: bold; padding: 4px 12px; border-bottom-left-radius: 12px;">Retrasado</div>
+                        <div class="w-full">
+                            <div class="flex justify-between items-center w-full">
+                                <h4>Camila Bastidas</h4>
+                                <button style="background: #f1f5f9; border: none; padding: 8px; border-radius: 50%; cursor: pointer;"><i data-lucide="pen" style="width: 14px; height: 14px; color: var(--blue-ui);"></i></button>
+                            </div>
+                            <p><i data-lucide="book" style="width: 14px;"></i> Historias inexplicables de biología</p>
+                            <div class="loan-dates">
+                                <div class="date-block"><span>Salida</span><strong>21/01/26</strong></div>
+                                <div class="date-block red"><span>A Devolver</span><strong>01/02/26</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <nav class="mobile-nav">
+            <a href="#" class="mob-link nav-btn active" data-target="dashboard"><i data-lucide="home"></i> Inicio</a>
+            <a href="#" class="mob-link nav-btn" data-target="prestamos"><i data-lucide="plus-circle"></i> Nuevo</a>
+            <a href="#" class="mob-link nav-btn" data-target="historial"><i data-lucide="bar-chart-2"></i> Estado</a>
+        </nav>
+    </div>
+
+    <div id="toast" class="toast">
+        <i id="toast-icon" data-lucide="info" style="width: 18px;"></i>
+        <span id="toast-message">Notificación</span>
+    </div>
+
+    <!-- CONTROLADORES JAVASCRIPT -->
+    <script>
+        lucide.createIcons();
+
+        /* --- FECHAS POR DEFECTO --- */
+        const opcionesFecha = { year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('es-VE', opcionesFecha);
+        
+        function setDefaultDates() {
+            const hoy = new Date();
+            const entrega = new Date(hoy);
+            entrega.setDate(entrega.getDate() + 7);
+            
+            document.getElementById('inp-fecha-sol').value = hoy.toISOString().split('T')[0];
+            document.getElementById('inp-fecha-dev').value = entrega.toISOString().split('T')[0];
+        }
+        setDefaultDates();
+
+        /* --- SISTEMA DE VALIDACIÓN EN TIEMPO REAL --- */
+        const validaciones = {
+            'login-user': { regex: /^[a-zA-Z0-9_.-]{4,}$/, mensaje: 'Debe tener al menos 4 caracteres válidos.' },
+            'login-pass': { 
+                regex: /^(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{6,}$/, 
+                mensaje: 'Mín. 6 caracteres, 1 mayúscula, 1 número y 1 carácter especial.' 
+            },
+            'inp-nombre': { regex: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,}$/, mensaje: 'Debe contener solo letras (mín. 2).' },
+            'inp-apellido': { regex: /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]{2,}$/, mensaje: 'Debe contener solo letras (mín. 2).' },
+            'inp-cedula': { regex: /^[vVeE]\d{5,9}$/, mensaje: 'Debe iniciar con V o E, seguido de números.' },
+            'inp-tel1': { regex: /^(0414|0424|0412|0422|0416|0426|02\d{2})[- ]?\d{7}$/, mensaje: 'Formato inválido. Ej: 0412-1234567.' },
+            'inp-direccion': { regex: /^.{5,}$/, mensaje: 'Especifique mejor la dirección (mín. 5 carac.).' },
+            'inp-libro': { regex: /^.{2,}$/, mensaje: 'Ingrese el título completo del libro.' },
+            'inp-autor': { regex: /^.{2,}$/, mensaje: 'Ingrese el autor del libro.' }
+        };
+
+        function validarCampo(input) {
+            const id = input.id;
+            let valor = input.value.trim();
+            let esValido = true;
+            let mensajeError = '';
+
+            if (id === 'inp-cedula' && valor.length > 0) {
+                const primeraLetra = valor.charAt(0).toUpperCase(); 
+                if (primeraLetra === 'V' || primeraLetra === 'E') {
+                    valor = primeraLetra + valor.slice(1);
+                    input.value = valor;
+                }
+            }
+
+            if (input.required && valor === '') {
+                esValido = false;
+                mensajeError = 'Este campo es obligatorio.';
+            } else if (valor !== '' && validaciones[id]) {
+                if (id === 'login-pass') {
+                    let erroresPass = [];
+                    if (valor.length < 6) erroresPass.push('mínimo 6 caracteres');
+                    if (!/[A-Z]/.test(valor)) erroresPass.push('una mayúscula');
+                    if (!/\d/.test(valor)) erroresPass.push('un número');
+                    if (!/[^a-zA-Z0-9]/.test(valor)) erroresPass.push('un carácter especial');
+
+                    if (erroresPass.length > 0) {
+                        esValido = false;
+                        mensajeError = 'Falta: ' + erroresPass.join(', ') + '.';
+                    }
+                } else if (!validaciones[id].regex.test(valor)) {
+                    esValido = false;
+                    mensajeError = validaciones[id].mensaje;
+                }
+            } else if (id === 'inp-genero' && valor === '') {
+                esValido = false;
+                mensajeError = 'Por favor seleccione un género.';
+            } else if (id === 'inp-fecha-sol' || id === 'inp-fecha-dev') {
+                const solInput = document.getElementById('inp-fecha-sol');
+                const devInput = document.getElementById('inp-fecha-dev');
+                
+                if (solInput.value && devInput.value) {
+                    const fSol = new Date(solInput.value);
+                    const fDev = new Date(devInput.value);
+                    fSol.setHours(0,0,0,0);
+                    fDev.setHours(0,0,0,0);
+
+                    if (fDev <= fSol) {
+                        esValido = false;
+                        mensajeError = 'La devolución debe ser posterior a la salida.';
+                        if(id === 'inp-fecha-sol') mostrarError(devInput, mensajeError);
+                        if(id === 'inp-fecha-dev') mostrarError(solInput, mensajeError);
+                    } else {
+                        limpiarError(solInput);
+                        limpiarError(devInput);
+                        esValido = true;
+                    }
+                }
+            }
+
+            if (!esValido) mostrarError(input, mensajeError);
+            else limpiarError(input);
+
+            return esValido;
+        }
+
+        function mostrarError(input, mensaje) {
+            input.classList.add('input-error');
+            const errorDiv = document.getElementById(`err-${input.id}`);
+            if (errorDiv) {
+                errorDiv.querySelector('span').textContent = mensaje;
+                errorDiv.classList.add('show');
+            }
+        }
+
+        function limpiarError(input) {
+            input.classList.remove('input-error');
+            const errorDiv = document.getElementById(`err-${input.id}`);
+            if (errorDiv) {
+                errorDiv.classList.remove('show');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const inputsRequeridos = document.querySelectorAll('input[required], select[required]');
+            inputsRequeridos.forEach(input => {
+                input.addEventListener('input', () => validarCampo(input));
+                input.addEventListener('blur', () => validarCampo(input));
+            });
+        });
+
+        /* --- AUTENTICACIÓN Y ENRUTAMIENTO --- */
+        function togglePassword() {
+            const pwdInput = document.getElementById('login-pass');
+            const icon = document.getElementById('pwd-icon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                pwdInput.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            
+            const inputs = document.querySelectorAll('#form-login input');
+            let formValido = true;
+            inputs.forEach(input => { if (!validarCampo(input)) formValido = false; });
+
+            if (!formValido) {
+                showToast("Por favor, corrija los errores marcados en rojo.", "error", "alert-triangle");
+                return;
+            }
+
+            const btn = document.getElementById('btn-login');
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader" class="spin"></i> Verificando...`;
+            lucide.createIcons();
+
+            showToast("Iniciando sesión segura...", "success");
+
+            setTimeout(() => {
+                document.getElementById('view-login').classList.add('hidden');
+                document.getElementById('view-rooms').classList.remove('hidden');
+                
+                btn.disabled = false;
+                btn.innerHTML = `Ingresar`;
+                document.getElementById('form-login').reset();
+            }, 1200);
+        }
+
+        function selectRoom(roomName) {
+            document.getElementById('header-title').textContent = roomName;
+            document.getElementById('view-rooms').classList.add('hidden');
+            document.getElementById('app-shell').classList.remove('hidden');
+            showToast(`Bienvenido a ${roomName}`, "success");
+        }
+
+        function logout() {
+            document.getElementById('app-shell').classList.add('hidden');
+            document.getElementById('view-login').classList.remove('hidden');
+            navigateTo('dashboard');
+            document.querySelectorAll('input, select').forEach(limpiarError);
+            showToast("Sesión cerrada correctamente.", "info");
+        }
+
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const sections = document.querySelectorAll('.page-section');
+
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                navigateTo(btn.getAttribute('data-target'));
+            });
+        });
+
+        function navigateTo(targetId) {
+            navBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-target') === targetId));
+            sections.forEach(sec => sec.classList.toggle('hidden', sec.id !== `page-${targetId}`));
+            
+            const titles = { 'dashboard': 'Registro y Actividad', 'prestamos': 'Nuevo Préstamo', 'historial': 'Estado de Préstamos' };
+            document.getElementById('header-subtitle').textContent = titles[targetId] || 'Gestión';
+        }
+
+        /* --- LÓGICA DE NEGOCIO --- */
+        function registrarEntrada(categoria) {
+            showToast(`+1 ${categoria} registrado exitosamente.`, "success", "user-check");
+        }
+
+        const mockDBLectores = [
+            { cedula: "V12345678", nombre: "Camila", apellido: "Bastidas", genero: "Femenino", direccion: "Av. Principal, Edificio Central", tel1: "0412-1234567" }
+        ];
+
+        let isAutocompleted = false;
+
+        function simularBusqueda() {
+            const query = document.getElementById('buscador-lector').value.toLowerCase().trim();
+            const badge = document.getElementById('badge-estado-usuario');
+            const form = document.getElementById('form-nuevo-prestamo');
+            
+            if(query === '123' || query === 'camila' || query === 'v12345678') {
+                const lector = mockDBLectores[0];
+                document.getElementById('inp-nombre').value = lector.nombre;
+                document.getElementById('inp-apellido').value = lector.apellido;
+                document.getElementById('inp-cedula').value = lector.cedula;
+                document.getElementById('inp-genero').value = lector.genero;
+                document.getElementById('inp-direccion').value = lector.direccion;
+                document.getElementById('inp-tel1').value = lector.tel1;
+                
+                badge.textContent = "AUTOCOMPLETADO";
+                badge.className = "badge entregado";
+                isAutocompleted = true;
+
+                ['inp-nombre', 'inp-apellido', 'inp-cedula', 'inp-genero', 'inp-direccion', 'inp-tel1'].forEach(id => limpiarError(document.getElementById(id)));
+            } else {
+                if(isAutocompleted) {
+                    form.reset();
+                    setDefaultDates();
+                    isAutocompleted = false;
+                    document.querySelectorAll('#form-nuevo-prestamo input, #form-nuevo-prestamo select').forEach(limpiarError);
+                }
+                badge.textContent = "NUEVO REGISTRO";
+                badge.className = "badge nuevo";
+            }
+        }
+
+        // CAMBIO 3: Actualización de la función registrarPrestamo para insertar en DOM
+        function registrarPrestamo(e) {
+            e.preventDefault();
+            
+            const inputs = document.querySelectorAll('#form-nuevo-prestamo input[required], #form-nuevo-prestamo select[required]');
+            let formValido = true;
+            inputs.forEach(input => {
+                if (!validarCampo(input)) formValido = false;
+            });
+
+            if (!formValido) {
+                showToast("Por favor, revise y corrija los campos marcados en rojo.", "error", "alert-circle");
+                return;
+            }
+
+            const btn = document.getElementById('btn-submit-prestamo');
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="loader" class="spin"></i> Procesando...`;
+            lucide.createIcons();
+
+            showToast("Préstamo registrado correctamente.", "success", "check-circle");
+            
+            // Simular petición al servidor de 1.5s
+            setTimeout(() => {
+                
+                // 1. Extraer la información validada
+                const nombre = document.getElementById('inp-nombre').value;
+                const apellido = document.getElementById('inp-apellido').value;
+                const libro = document.getElementById('inp-libro').value;
+                const fSolInput = document.getElementById('inp-fecha-sol').value;
+                const fDevInput = document.getElementById('inp-fecha-dev').value;
+                
+                // Formateador simple de fecha (YYYY-MM-DD a DD/MM/YY)
+                const formatDate = (dateStr) => {
+                    const [y, m, d] = dateStr.split('-');
+                    return `${d}/${m}/${y.slice(2)}`;
+                };
+
+                // 2. Construir la plantilla HTML para el Dashboard
+                const htmlDashboard = `
+                    <div class="loan-item fade-in" style="border-left: 4px solid var(--blue-ui);">
+                        <div class="loan-info">
+                            <h4>${nombre} ${apellido}</h4>
+                            <p><i data-lucide="book" style="width: 14px;"></i> ${libro}</p>
+                        </div>
+                        <div class="text-center">
+                            <span class="badge activo">ACTIVO</span>
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Justo ahora</div>
+                        </div>
+                    </div>
+                `;
+
+                // 3. Construir la plantilla HTML para el Historial Completo
+                const htmlHistorial = `
+                    <div class="loan-item fade-in" style="border-left: 4px solid var(--blue-ui);">
+                        <div class="w-full">
+                            <div class="flex justify-between items-center w-full">
+                                <h4>${nombre} ${apellido}</h4>
+                                <button style="background: #f1f5f9; border: none; padding: 8px; border-radius: 50%; cursor: pointer;">
+                                    <i data-lucide="pen" style="width: 14px; height: 14px; color: var(--blue-ui);"></i>
+                                </button>
+                            </div>
+                            <p><i data-lucide="book" style="width: 14px;"></i> ${libro}</p>
+                            <div class="loan-dates">
+                                <div class="date-block"><span>Salida</span><strong>${formatDate(fSolInput)}</strong></div>
+                                <div class="date-block"><span>A Devolver</span><strong>${formatDate(fDevInput)}</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // 4. Inyectar (prepend) las plantillas en los contenedores correspondientes
+                document.getElementById('dashboard-loans-list').insertAdjacentHTML('afterbegin', htmlDashboard);
+                document.getElementById('historial-loans-list').insertAdjacentHTML('afterbegin', htmlHistorial);
+
+                // Re-inicializar los iconos de Lucide porque introdujimos nuevo HTML
+                lucide.createIcons();
+
+                // 5. Reiniciar y preparar la vista para el siguiente registro
+                document.getElementById('form-nuevo-prestamo').reset();
+                document.getElementById('buscador-lector').value = "";
+                setDefaultDates();
+                
+                const badge = document.getElementById('badge-estado-usuario');
+                badge.textContent = "NUEVO REGISTRO";
+                badge.className = "badge nuevo";
+                isAutocompleted = false;
+
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="bookmark-check"></i> Registrar Préstamo`;
+                lucide.createIcons();
+
+                // 6. Navegar al dashboard para que el usuario vea su cambio de inmediato
+                navigateTo('dashboard');
+
+            }, 1500);
+        }
+
+        /* --- NOTIFICACIONES --- */
+        function showToast(message, type = "info", icon = "info") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+            
+            toast.classList.remove('error');
+            if(type === "error") toast.classList.add('error');
+
+            toastMsg.textContent = message;
+            toastIcon.setAttribute('data-lucide', icon);
+            lucide.createIcons();
+
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+    </script>
+</body>
+</html>
